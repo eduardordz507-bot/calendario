@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Nuestro Calendario</title>
+<meta name="description" content="Calendario compartido de pareja: los dos registran y ven sus planes.">
+<meta name="theme-color" content="#e05c86">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Nuestro Cal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Spectral:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: calendario mensual de pareja — encabezado con navegación de mes,
+     cuadrícula de 7 columnas con puntos de color por persona, y el detalle
+     del día seleccionado debajo. Dos colores: uno por cada quien, un tercero
+     mezclado para lo de ambos. */
+  :root {
+    --bg: #faf6f4;
+    --surface: #ffffff;
+    --surface-2: #f4edea;
+    --ink: #2a2230;
+    --muted: #8c7f88;
+    --line: #ece2e0;
+    --a: #1f9e8c;          /* persona A */
+    --a-soft: #d8f0ec;
+    --b: #e05c86;          /* persona B */
+    --b-soft: #fbe0e9;
+    --ambos: #8a6fd1;      /* los dos */
+    --ambos-soft: #e9e1f8;
+    --hoy: #d98324;
+    --shadow: 0 6px 24px -12px rgba(60, 30, 50, .35);
+    color-scheme: light;
+    --display: "Spectral", Georgia, "Times New Roman", serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161218; --surface: #211b24; --surface-2: #2a222e;
+      --ink: #f1e9ee; --muted: #a2949d; --line: #342b39;
+      --a: #39b7a4; --a-soft: #15332f; --b: #ef7aa0; --b-soft: #3a222c;
+      --ambos: #a98ce6; --ambos-soft: #2c2440; --hoy: #e9a14f;
+      --shadow: 0 8px 28px -14px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161218; --surface: #211b24; --surface-2: #2a222e;
+    --ink: #f1e9ee; --muted: #a2949d; --line: #342b39;
+    --a: #39b7a4; --a-soft: #15332f; --b: #ef7aa0; --b-soft: #3a222c;
+    --ambos: #a98ce6; --ambos-soft: #2c2440; --hoy: #e9a14f;
+    --shadow: 0 8px 28px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--body); font-size: 15px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding-block: 18px 120px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand h1 {
+    font-family: var(--display); font-weight: 600; font-size: 1.5rem;
+    margin: 0; letter-spacing: -.01em; text-wrap: balance;
+  }
+  .heart { color: var(--b); flex: none; }
+  .hbtns { display: flex; gap: 8px; flex: none; }
+  .icon-btn {
+    flex: none; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--muted); display: grid; place-items: center; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .icon-btn:hover { color: var(--ink); background: var(--surface-2); }
+
+  .monthbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+  .monthbar .title { font-family: var(--display); font-size: 1.2rem; font-weight: 600; text-transform: capitalize; }
+  .monthbar .nav { display: flex; align-items: center; gap: 6px; }
+  .pill {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 999px; padding: 6px 12px; font-size: .8rem; cursor: pointer; font-family: inherit;
+  }
+  .pill:hover { background: var(--surface-2); }
+
+  .cal { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px; box-shadow: var(--shadow); }
+  .dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .dow span { text-align: center; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 4px 0; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cell {
+    position: relative; aspect-ratio: 1 / 1; border: 0; background: transparent; cursor: pointer;
+    border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding-top: 6px; color: var(--ink); font-family: inherit; font-size: .92rem; transition: background .12s;
+  }
+  .cell:hover { background: var(--surface-2); }
+  .cell.off { color: var(--muted); opacity: .4; }
+  .cell.sel { background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--ink); }
+  .cell .num { font-variant-numeric: tabular-nums; }
+  .cell.hoy .num {
+    background: var(--hoy); color: #fff; width: 1.7em; height: 1.7em; border-radius: 50%;
+    display: grid; place-items: center; margin-top: -1px;
+  }
+  .dots { display: flex; gap: 2px; margin-top: 3px; flex-wrap: wrap; justify-content: center; max-width: 90%; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot.a { background: var(--a); } .dot.b { background: var(--b); } .dot.ambos { background: var(--ambos); }
+
+  .legend { display: flex; gap: 14px; justify-content: center; margin: 14px 0 4px; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 9px; height: 9px; }
+
+  .daybox { margin-top: 18px; }
+  .daybox h2 { font-family: var(--display); font-size: 1.1rem; font-weight: 600; margin: 0 0 10px; text-transform: capitalize; }
+  .events { display: flex; flex-direction: column; gap: 8px; }
+  .event {
+    display: flex; align-items: stretch; gap: 10px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 10px 12px; cursor: pointer; transition: border-color .15s;
+  }
+  .event:hover { border-color: var(--muted); }
+  .event .bar { width: 4px; border-radius: 4px; flex: none; }
+  .event .bar.a { background: var(--a); } .event .bar.b { background: var(--b); } .event .bar.ambos { background: var(--ambos); }
+  .event .mid { flex: 1; min-width: 0; }
+  .event .t { font-weight: 600; }
+  .event .meta { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .event .nota { font-size: .82rem; color: var(--ink); margin-top: 4px; opacity: .85; overflow-wrap: anywhere; }
+  .chip { display: inline-block; font-size: .7rem; padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+  .chip.a { background: var(--a-soft); color: var(--a); }
+  .chip.b { background: var(--b-soft); color: var(--b); }
+  .chip.ambos { background: var(--ambos-soft); color: var(--ambos); }
+  .empty { color: var(--muted); font-size: .9rem; text-align: center; padding: 22px 10px; }
+
+  .fab {
+    position: fixed; right: max(18px, env(safe-area-inset-right, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+    height: 56px; padding: 0 22px; border: 0; border-radius: 999px; cursor: pointer;
+    background: var(--b); color: #fff; font-family: inherit; font-size: 1rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 10px 26px -8px rgba(224,92,134,.6);
+  }
+  .fab:active { transform: translateY(1px); }
+
+  /* Modal */
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(20,10,20,.45); display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+  .scrim.center { align-items: center; padding: 16px; }
+  @media (min-width: 520px) { .scrim { align-items: center; padding: 16px; } }
+  .sheet {
+    width: 100%; max-width: 460px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 20px 20px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow: var(--shadow); max-height: 90vh; overflow-y: auto;
+  }
+  @media (min-width: 520px) { .sheet { border-radius: 20px; } }
+  .sheet h3 { font-family: var(--display); font-size: 1.25rem; margin: 0 0 14px; font-weight: 600; }
+  label.fld { display: block; margin-bottom: 12px; }
+  label.fld .lb { font-size: .78rem; color: var(--muted); margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: .04em; }
+  input, textarea, select {
+    width: 100%; font-family: inherit; font-size: 1rem; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
+  }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--b); outline-offset: 1px; }
+  textarea { resize: vertical; min-height: 60px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    flex: 1; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 12px;
+    padding: 10px 6px; cursor: pointer; font-family: inherit; font-size: .9rem; font-weight: 600;
+  }
+  .seg button[aria-pressed="true"].qa { background: var(--a-soft); color: var(--a); border-color: var(--a); }
+  .seg button[aria-pressed="true"].qb { background: var(--b-soft); color: var(--b); border-color: var(--b); }
+  .seg button[aria-pressed="true"].qambos { background: var(--ambos-soft); color: var(--ambos); border-color: var(--ambos); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .btn { flex: 1; border: 0; border-radius: 12px; padding: 13px; font-family: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; }
+  .btn.primary { background: var(--b); color: #fff; }
+  .btn.ghost { background: var(--surface-2); color: var(--ink); }
+  .btn.danger { background: transparent; color: var(--b); border: 1px solid var(--line); flex: none; width: 48px; display: grid; place-items: center; }
+  .note { font-size: .82rem; color: var(--muted); margin-top: 2px; }
+  .codebox {
+    font-family: ui-monospace, Menlo, monospace; font-size: 1.4rem; font-weight: 600; letter-spacing: .12em;
+    text-align: center; background: var(--surface-2); border: 1px dashed var(--line); border-radius: 12px;
+    padding: 14px; margin: 6px 0 12px; color: var(--ink); text-transform: uppercase;
+  }
+
+  .banner {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; font-size: .82rem; color: var(--muted); margin-bottom: 12px;
+  }
+  .banner b { color: var(--ink); }
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet { animation: up .22s ease; }
+    @keyframes up { from { transform: translateY(24px); opacity: .6; } }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="heart" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.3 8.2 2 5 5.2 5c2 0 3.3 1.1 4 2.2.7-1.1 2-2.2 4-2.2C16.9 5 18.7 7 18.7 9.4 18.7 13 16 15.7 12 21z"/></svg>
+      <h1>Nuestro Calendario</h1>
+    </div>
+    <div class="hbtns">
+      <button class="icon-btn" id="btnShare" aria-label="Compartir con mi pareja">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+      </button>
+      <button class="icon-btn" id="btnConfig" aria-label="Ajustes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.47.5.84 1 1.01H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <div class="monthbar">
+    <div class="title" id="monthTitle">—</div>
+    <div class="nav">
+      <button class="pill" id="hoyBtn">Hoy</button>
+      <button class="icon-btn" id="prev" aria-label="Mes anterior"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button class="icon-btn" id="next" aria-label="Mes siguiente"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  </div>
+
+  <div class="cal">
+    <div class="dow" id="dow"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="daybox">
+    <h2 id="dayTitle">—</h2>
+    <div class="events" id="dayEvents"></div>
+  </div>
+</div>
+
+<button class="fab" id="fab" aria-label="Agregar evento">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Agregar
+</button>
+
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const DOW = ["D", "L", "M", "M", "J", "V", "S"];
+  const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const DIAS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const hoyStr = ymd(new Date());
+  const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+  let view = new Date(); view.setDate(1);
+  let sel = hoyStr;
+  let eventos = [];                 // [{id, fecha, titulo, hora, quien, nota}]
+  let perfil = { a: "Yo", b: "Mi pareja" };
+  let yo = lsGet("cal.yo", "");     // 'a' | 'b' | '' (quién es este dispositivo)
+  let store = null;                 // capa de datos (nube o local)
+  let codigo = "";                  // código de pareja
+
+  const nombre = (q) => q === "a" ? perfil.a : q === "b" ? perfil.b : "Los dos";
+  const eventosDe = (fecha) => eventos.filter(e => e.fecha === fecha)
+    .sort((x, y) => (x.hora || "99").localeCompare(y.hora || "99"));
+
+  // ---------- Código de pareja ----------
+  function nuevoCodigo() {
+    const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin O/0/I/1 para no confundir
+    let s = ""; for (let i = 0; i < 6; i++) s += abc[Math.floor(Math.random() * abc.length)];
+    return s;
+  }
+  function limpiarCodigo(s) { return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10); }
+  function urlDePareja() {
+    return location.origin + location.pathname + "?p=" + encodeURIComponent(codigo);
+  }
+
+  // ---------- Render ----------
+  function render() {
+    $("monthTitle").textContent = `${MESES[view.getMonth()]} ${view.getFullYear()}`;
+    $("dow").innerHTML = DOW.map(d => `<span>${d}</span>`).join("");
+
+    const y = view.getFullYear(), m = view.getMonth();
+    const primero = new Date(y, m, 1).getDay();
+    const dias = new Date(y, m + 1, 0).getDate();
+    const prevDias = new Date(y, m, 0).getDate();
+    const celdas = [];
+    for (let i = 0; i < primero; i++) celdas.push({ off: true, d: prevDias - primero + 1 + i, mm: m - 1 });
+    for (let d = 1; d <= dias; d++) celdas.push({ off: false, d, mm: m });
+    while (celdas.length % 7 !== 0) celdas.push({ off: true, d: celdas.length - (primero + dias) + 1, mm: m + 1 });
+
+    $("grid").innerHTML = celdas.map(c => {
+      const fecha = ymd(new Date(y, c.mm, c.d));
+      const evs = eventosDe(fecha);
+      const tipos = [...new Set(evs.map(e => e.quien))];
+      const dots = tipos.slice(0, 3).map(t => `<span class="dot ${t}"></span>`).join("");
+      const cls = ["cell"];
+      if (c.off) cls.push("off");
+      if (fecha === hoyStr) cls.push("hoy");
+      if (fecha === sel) cls.push("sel");
+      return `<button class="${cls.join(" ")}" data-f="${fecha}">
+        <span class="num">${c.d}</span>
+        <span class="dots">${dots}</span>
+      </button>`;
+    }).join("");
+
+    $("legend").innerHTML =
+      `<span><span class="dot a"></span>${esc(perfil.a)}</span>` +
+      `<span><span class="dot b"></span>${esc(perfil.b)}</span>` +
+      `<span><span class="dot ambos"></span>Los dos</span>`;
+
+    renderDia();
+  }
+
+  function renderDia() {
+    const d = new Date(sel + "T00:00:00");
+    $("dayTitle").textContent = `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`;
+    const evs = eventosDe(sel);
+    if (!evs.length) {
+      $("dayEvents").innerHTML = `<div class="empty">Sin planes este día.<br>Toca “Agregar” para registrar uno. 💛</div>`;
+      return;
+    }
+    $("dayEvents").innerHTML = evs.map(e => `
+      <div class="event" data-id="${esc(e.id)}">
+        <div class="bar ${e.quien}"></div>
+        <div class="mid">
+          <div class="t">${esc(e.titulo)}</div>
+          <div class="meta">${e.hora ? esc(e.hora) + " · " : ""}<span class="chip ${e.quien}">${esc(nombre(e.quien))}</span></div>
+          ${e.nota ? `<div class="nota">${esc(e.nota)}</div>` : ""}
+        </div>
+      </div>`).join("");
+  }
+
+  // ---------- Modales ----------
+  function closeModal() { const s = document.querySelector(".scrim"); if (s) s.remove(); }
+  function modal(html, center) {
+    closeModal();
+    const s = document.createElement("div");
+    s.className = "scrim" + (center ? " center" : "");
+    s.innerHTML = `<div class="sheet">${html}</div>`;
+    s.addEventListener("click", (e) => { if (e.target === s) closeModal(); });
+    document.body.appendChild(s);
+    return s;
+  }
+
+  function pedirQuienSoy(then) {
+    const s = modal(`
+      <h3>¿Quién eres en este teléfono?</h3>
+      <p class="note" style="margin-bottom:14px">Solo para marcar tus eventos con tu color. Lo puedes cambiar luego en ⚙️.</p>
+      <div class="seg">
+        <button class="qa" data-q="a">${esc(perfil.a)}</button>
+        <button class="qb" data-q="b">${esc(perfil.b)}</button>
+      </div>`, true);
+    s.querySelectorAll("[data-q]").forEach(b => b.onclick = () => {
+      yo = b.dataset.q; lsSet("cal.yo", yo); closeModal(); if (then) then();
+    });
+  }
+
+  function abrirEvento(ev) {
+    const nuevo = !ev;
+    if (nuevo && !yo) { pedirQuienSoy(() => abrirEvento(null)); return; }
+    const quienInicial = ev ? ev.quien : (yo || "ambos");
+    const s = modal(`
+      <h3>${nuevo ? "Nuevo plan" : "Editar plan"}</h3>
+      <label class="fld"><span class="lb">¿Qué es?</span>
+        <input id="f_titulo" placeholder="Cena, cita, aniversario…" value="${esc(ev ? ev.titulo : "")}" maxlength="80"></label>
+      <div class="row">
+        <label class="fld"><span class="lb">Fecha</span>
+          <input id="f_fecha" type="date" value="${esc(ev ? ev.fecha : sel)}"></label>
+        <label class="fld"><span class="lb">Hora (opcional)</span>
+          <input id="f_hora" type="time" value="${esc(ev ? ev.hora || "" : "")}"></label>
+      </div>
+      <label class="fld"><span class="lb">¿De quién es?</span>
+        <div class="seg" id="f_quien">
+          <button type="button" class="qa" data-q="a" aria-pressed="${quienInicial==="a"}">${esc(perfil.a)}</button>
+          <button type="button" class="qb" data-q="b" aria-pressed="${quienInicial==="b"}">${esc(perfil.b)}</button>
+          <button type="button" class="qambos" data-q="ambos" aria-pressed="${quienInicial==="ambos"}">Los dos</button>
+        </div></label>
+      <label class="fld"><span class="lb">Nota (opcional)</span>
+        <textarea id="f_nota" maxlength="500" placeholder="Detalles, lugar, recordatorio…">${esc(ev ? ev.nota || "" : "")}</textarea></label>
+      <div class="actions">
+        ${ev ? `<button class="btn danger" id="f_del" aria-label="Eliminar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ""}
+        <button class="btn ghost" id="f_cancel">Cancelar</button>
+        <button class="btn primary" id="f_save">Guardar</button>
+      </div>
+    `, false);
+
+    let quien = quienInicial;
+    s.querySelectorAll("#f_quien button").forEach(b => b.onclick = () => {
+      quien = b.dataset.q;
+      s.querySelectorAll("#f_quien button").forEach(x => x.setAttribute("aria-pressed", x.dataset.q === quien));
+    });
+    s.querySelector("#f_cancel").onclick = closeModal;
+    setTimeout(() => { const t = s.querySelector("#f_titulo"); if (nuevo) t.focus(); }, 60);
+
+    s.querySelector("#f_save").onclick = async () => {
+      const titulo = s.querySelector("#f_titulo").value.trim();
+      const fecha = s.querySelector("#f_fecha").value;
+      if (!titulo) { s.querySelector("#f_titulo").focus(); return; }
+      if (!fecha) { s.querySelector("#f_fecha").focus(); return; }
+      const body = { titulo, fecha, hora: s.querySelector("#f_hora").value || "", quien, nota: s.querySelector("#f_nota").value.trim() };
+      const btn = s.querySelector("#f_save"); btn.disabled = true; btn.textContent = "Guardando…";
+      try {
+        if (!store) throw new Error("sin conexión");
+        if (ev) await store.eventoSet(ev.id, body);
+        else await store.eventoAdd(body);
+        sel = fecha; view = new Date(fecha + "T00:00:00"); view.setDate(1);
+        closeModal();
+      } catch (err) {
+        btn.disabled = false; btn.textContent = "Guardar";
+        mostrarBanner("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
+      }
+    };
+    if (ev) s.querySelector("#f_del").onclick = async () => {
+      if (!store) return;
+      try { await store.eventoDel(ev.id); closeModal(); }
+      catch { mostrarBanner("No se pudo eliminar."); }
+    };
+  }
+
+  function abrirConfig() {
+    const sincTxt = store && store.kind === "nube"
+      ? `<b>Sincronización activa.</b> Lo que agregue cualquiera de los dos aparece en el otro teléfono.`
+      : `<b>Solo en este teléfono.</b> Para ver los eventos en los dos celulares falta activar la sincronización.`;
+    const s = modal(`
+      <h3>Ajustes</h3>
+      <label class="fld"><span class="lb">Nombre de la persona 1</span>
+        <input id="c_a" value="${esc(perfil.a)}" maxlength="24"></label>
+      <label class="fld"><span class="lb">Nombre de la persona 2</span>
+        <input id="c_b" value="${esc(perfil.b)}" maxlength="24"></label>
+      <label class="fld"><span class="lb">¿Quién usa este teléfono?</span>
+        <div class="seg" id="c_yo">
+          <button type="button" class="qa" data-q="a" aria-pressed="${yo==="a"}">Persona 1</button>
+          <button type="button" class="qb" data-q="b" aria-pressed="${yo==="b"}">Persona 2</button>
+        </div></label>
+      <div class="banner" style="margin:4px 0 12px">${sincTxt}<br>Código de pareja: <b>${esc(codigo || "—")}</b></div>
+      <p class="note">Los nombres los ven los dos. “¿Quién usa este teléfono?” es solo de este dispositivo.</p>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn ghost" id="c_cancel">Cerrar</button>
+        <button class="btn primary" id="c_save">Guardar</button>
+      </div>`, false);
+    let q = yo;
+    s.querySelectorAll("#c_yo button").forEach(b => b.onclick = () => {
+      q = b.dataset.q; s.querySelectorAll("#c_yo button").forEach(x => x.setAttribute("aria-pressed", x.dataset.q === q));
+    });
+    s.querySelector("#c_cancel").onclick = closeModal;
+    s.querySelector("#c_save").onclick = async () => {
+      const a = s.querySelector("#c_a").value.trim() || "Yo";
+      const b = s.querySelector("#c_b").value.trim() || "Mi pareja";
+      if (q) { yo = q; lsSet("cal.yo", yo); }
+      closeModal();
+      perfil = { a, b }; render();
+      try { if (store) await store.perfilSet({ a, b }); } catch {}
+    };
+  }
+
+  function abrirCompartir() {
+    const url = urlDePareja();
+    const s = modal(`
+      <h3>Compartir con tu pareja 💛</h3>
+      <p class="note" style="margin-bottom:10px">Para que los dos vean y registren lo mismo, tu pareja debe abrir este calendario con el mismo código.</p>
+      <div class="codebox">${esc(codigo)}</div>
+      <p class="note" style="margin-bottom:12px">Mándale el enlace (ya trae el código):</p>
+      <label class="fld"><input id="sh_url" value="${esc(url)}" readonly></label>
+      <div class="actions">
+        <button class="btn ghost" id="sh_copy">Copiar enlace</button>
+        <button class="btn primary" id="sh_send">Compartir</button>
+      </div>
+      ${store && store.kind === "nube" ? "" : `<p class="note" style="margin-top:12px;color:var(--b)">Aún no está activada la sincronización, así que el enlace todavía no mostrará lo mismo en el otro teléfono.</p>`}
+    `, true);
+    const copiar = async () => {
+      try { await navigator.clipboard.writeText(url); const b = s.querySelector("#sh_copy"); b.textContent = "¡Copiado!"; setTimeout(() => b.textContent = "Copiar enlace", 1500); }
+      catch { s.querySelector("#sh_url").select(); }
+    };
+    s.querySelector("#sh_copy").onclick = copiar;
+    s.querySelector("#sh_send").onclick = async () => {
+      if (navigator.share) { try { await navigator.share({ title: "Nuestro Calendario", text: "Entra a nuestro calendario de pareja 💛", url }); } catch {} }
+      else copiar();
+    };
+    setTimeout(() => s.querySelector("#sh_url").select(), 80);
+  }
+
+  function mostrarBanner(txt, html) {
+    const b = $("banner");
+    if (!txt && !html) { b.hidden = true; return; }
+    if (html) b.innerHTML = html; else b.textContent = txt;
+    b.hidden = false;
+  }
+
+  // ---------- Onboarding (elegir/crear código) ----------
+  function onboarding() {
+    const s = modal(`
+      <h3>Bienvenidos 💛</h3>
+      <p class="note" style="margin-bottom:14px">Un calendario para los dos. Creen uno nuevo, o si tu pareja ya creó el suyo, únete con su código.</p>
+      <div class="actions" style="flex-direction:column">
+        <button class="btn primary" id="ob_new">Crear calendario nuevo</button>
+        <button class="btn ghost" id="ob_join">Unirme con un código</button>
+      </div>`, true);
+    s.querySelector("#ob_new").onclick = () => { usarCodigo(nuevoCodigo(), true); };
+    s.querySelector("#ob_join").onclick = () => {
+      const s2 = modal(`
+        <h3>Unirme al calendario</h3>
+        <label class="fld"><span class="lb">Código de pareja</span>
+          <input id="jc" placeholder="Ej. ABC123" autocapitalize="characters" autocomplete="off" maxlength="10"></label>
+        <div class="actions">
+          <button class="btn ghost" id="jc_cancel">Atrás</button>
+          <button class="btn primary" id="jc_ok">Entrar</button>
+        </div>`, true);
+      s2.querySelector("#jc_cancel").onclick = onboarding;
+      s2.querySelector("#jc_ok").onclick = () => {
+        const c = limpiarCodigo(s2.querySelector("#jc").value);
+        if (c.length < 4) { s2.querySelector("#jc").focus(); return; }
+        usarCodigo(c, false);
+      };
+      setTimeout(() => s2.querySelector("#jc").focus(), 60);
+    };
+  }
+
+  function usarCodigo(c, esNuevo) {
+    codigo = c;
+    lsSet("cal.codigo", c);
+    try { history.replaceState(null, "", "?p=" + encodeURIComponent(c)); } catch {}
+    closeModal();
+    conectar();
+    if (esNuevo) setTimeout(abrirCompartir, 300);
+  }
+
+  // ---------- Capa de datos ----------
+  function localStore(code) {
+    const KEY = "cal.data." + code;
+    let state = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || { perfil: null, eventos: {} }; } catch { return { perfil: null, eventos: {} }; } })();
+    let perfilCbs = [], evCbs = [];
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} emit(); };
+    const arr = () => Object.keys(state.eventos).map(id => Object.assign({ id }, state.eventos[id]));
+    const emit = () => { perfilCbs.forEach(cb => cb(state.perfil)); evCbs.forEach(cb => cb(arr())); };
+    const uid = () => "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    return {
+      kind: "local",
+      perfilOnSnapshot: (cb) => { perfilCbs.push(cb); cb(state.perfil); },
+      perfilSet: (o) => { state.perfil = Object.assign({}, state.perfil, o); save(); return Promise.resolve(); },
+      eventosOnSnapshot: (cb) => { evCbs.push(cb); cb(arr()); },
+      eventoAdd: (o) => { state.eventos[uid()] = o; save(); return Promise.resolve(); },
+      eventoSet: (id, o) => { state.eventos[id] = o; save(); return Promise.resolve(); },
+      eventoDel: (id) => { delete state.eventos[id]; save(); return Promise.resolve(); },
+    };
+  }
+
+  function firestoreStore(code) {
+    const fdb = firebase.firestore();
+    const base = fdb.collection("parejas").doc(code);
+    return {
+      kind: "nube",
+      perfilOnSnapshot: (cb, err) => base.onSnapshot(snap => cb(snap.exists ? snap.data() : null), err),
+      perfilSet: (o) => base.set(o, { merge: true }),
+      eventosOnSnapshot: (cb, err) => base.collection("eventos").onSnapshot(
+        snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), err),
+      eventoAdd: (o) => base.collection("eventos").add(o),
+      eventoSet: (id, o) => base.collection("eventos").doc(id).set(o),
+      eventoDel: (id) => base.collection("eventos").doc(id).delete(),
+    };
+  }
+
+  function conectar() {
+    const cfg = window.FIREBASE_CONFIG;
+    if (cfg && window.firebase) {
+      try {
+        if (!firebase.apps.length) firebase.initializeApp(cfg);
+        firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(() => {});
+        store = firestoreStore(codigo);
+        mostrarBanner(null);
+      } catch (e) { store = localStore(codigo); }
+    } else {
+      store = localStore(codigo);
+      mostrarBanner(null, `<b>Modo solo este teléfono.</b> La sincronización con el otro celular aún no está activada.`);
+    }
+
+    store.perfilOnSnapshot((d) => {
+      if (d) { perfil = { a: d.a || "Yo", b: d.b || "Mi pareja" }; render(); }
+    }, () => {});
+    store.eventosOnSnapshot((arr) => {
+      eventos = arr; render();
+    }, () => { mostrarBanner("Se perdió la conexión con los datos. Recarga la página."); });
+  }
+
+  // ---------- Eventos de UI ----------
+  $("prev").onclick = () => { view.setMonth(view.getMonth() - 1); render(); };
+  $("next").onclick = () => { view.setMonth(view.getMonth() + 1); render(); };
+  $("hoyBtn").onclick = () => { view = new Date(); view.setDate(1); sel = hoyStr; render(); };
+  $("grid").onclick = (e) => { const c = e.target.closest("[data-f]"); if (!c) return; sel = c.dataset.f; render(); };
+  $("dayEvents").onclick = (e) => { const el = e.target.closest("[data-id]"); if (!el) return; const ev = eventos.find(x => x.id === el.dataset.id); if (ev) abrirEvento(ev); };
+  $("fab").onclick = () => abrirEvento(null);
+  $("btnConfig").onclick = abrirConfig;
+  $("btnShare").onclick = abrirCompartir;
+
+  render();
+
+  // ---------- Arranque: determinar código ----------
+  (function arrancar() {
+    const url = new URLSearchParams(location.search);
+    const fromUrl = limpiarCodigo(url.get("p"));
+    const fromLs = limpiarCodigo(lsGet("cal.codigo", ""));
+    const c = fromUrl || fromLs;
+    if (c && c.length >= 4) { usarCodigo(c, false); }
+    else { onboarding(); }
+  })();
+
+  // ---------- Service worker ----------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
